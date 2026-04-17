@@ -14,6 +14,11 @@ export type CardAddPayload = {
     title: string;
     sortOrder: number;
     createdById: string;
+    description: string | null;
+    assigneeId: string | null;
+    labels: string[] | null;
+    createdAt: Date;
+    updatedAt: Date;
   };
 };
 
