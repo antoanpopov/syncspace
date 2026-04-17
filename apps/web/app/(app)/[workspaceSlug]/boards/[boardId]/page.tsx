@@ -26,6 +26,8 @@ export default async function BoardPage({
   const { workspaceSlug, boardId } = await params;
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
+  const userId = session.user.id;
+  const userName = session.user.name;
 
   const [board, workspace] = await Promise.all([
     db.query.boards.findFirst({ where: eq(boards.id, boardId) }),
@@ -55,9 +57,9 @@ export default async function BoardPage({
       boardTitle={board.title}
       initialColumns={initialColumns}
       members={memberRows}
-      currentUserId={session.user.id}
-      currentUserName={session.user.name ?? "User"}
-      currentUserColor={getUserColor(session.user.id)}
+      currentUserId={userId}
+      currentUserName={userName ?? "User"}
+      currentUserColor={getUserColor(userId)}
     />
   );
 }

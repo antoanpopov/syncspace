@@ -53,6 +53,7 @@ export default async function InvitePage({
     // Not signed in — redirect to sign-in, then come back
     redirect(`/sign-in?callbackUrl=/invite/${token}`);
   }
+  const userEmail = session.user.email;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg">
@@ -63,7 +64,7 @@ export default async function InvitePage({
             You&rsquo;re invited to <span className="text-accent">{workspace?.name}</span>
           </h1>
           <p className="text-sm text-text-muted">
-            Signed in as <span className="text-text">{session.user.email}</span>
+            Signed in as <span className="text-text">{userEmail}</span>
           </p>
         </div>
         <AcceptInviteButton token={token} />

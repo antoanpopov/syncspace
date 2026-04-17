@@ -15,6 +15,7 @@ export default async function WorkspaceLayout({
   const { workspaceSlug } = await params;
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
+  const userId = session.user.id;
 
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.slug, workspaceSlug),
@@ -26,7 +27,7 @@ export default async function WorkspaceLayout({
   const membership = await db.query.workspaceMembers.findFirst({
     where: and(
       eq(workspaceMembers.workspaceId, workspace.id),
-      eq(workspaceMembers.userId, session.user.id)
+      eq(workspaceMembers.userId, userId)
     ),
   });
 

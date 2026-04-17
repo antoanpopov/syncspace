@@ -9,6 +9,7 @@ import { Plus } from "lucide-react";
 export default async function WorkspacesPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
+  const userId = session.user.id;
 
   const userWorkspaces = await db
     .select({
@@ -19,7 +20,7 @@ export default async function WorkspacesPage() {
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
-    .where(eq(workspaceMembers.userId, session.user.id));
+    .where(eq(workspaceMembers.userId, userId));
 
   return (
     <div className="flex min-h-screen items-center justify-center">

@@ -13,6 +13,7 @@ export default async function MembersPage({
   const { workspaceSlug } = await params;
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
+  const userId = session.user.id;
 
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.slug, workspaceSlug),
@@ -22,7 +23,7 @@ export default async function MembersPage({
   const myMembership = await db.query.workspaceMembers.findFirst({
     where: and(
       eq(workspaceMembers.workspaceId, workspace.id),
-      eq(workspaceMembers.userId, session.user.id)
+      eq(workspaceMembers.userId, userId)
     ),
   });
   if (!myMembership) notFound();
@@ -42,7 +43,7 @@ export default async function MembersPage({
 
   const members = memberRows.map((m) => ({
     ...m,
-    isMe: m.userId === session.user.id,
+    isMe: m.userId === userId,
   }));
 
   const canManage =

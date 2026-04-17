@@ -14,6 +14,8 @@ export default async function PageView({
 
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
+  const userId = session.user.id;
+  const userName = session.user.name;
 
   const page = await db.query.pages.findFirst({
     where: eq(pages.id, pageId),
@@ -26,8 +28,8 @@ export default async function PageView({
       pageId={pageId}
       workspaceSlug={workspaceSlug}
       initialTitle={page.title}
-      userId={session.user.id}
-      userName={session.user.name ?? "Anonymous"}
+      userId={userId}
+      userName={userName ?? "Anonymous"}
     />
   );
 }
