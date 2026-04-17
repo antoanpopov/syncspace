@@ -1,0 +1,5 @@
+[build]
+buildCommand = "pnpm --filter @syncspace/db build && pnpm --filter @syncspace/server build"
+
+[deploy]
+startCommand = "pnpm --filter @syncspace/server start"
