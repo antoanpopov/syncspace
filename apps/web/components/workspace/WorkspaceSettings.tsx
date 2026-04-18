@@ -44,13 +44,6 @@ export function WorkspaceSettings({
 
   return (
     <div className="mx-auto max-w-2xl px-8 py-10 space-y-10">
-      <div>
-        <h1 className="text-2xl font-bold">Workspace settings</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Manage your workspace name and general configuration.
-        </p>
-      </div>
-
       {/* General */}
       <section className="rounded-xl border border-border bg-bg-surface p-6 space-y-5">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-text-faint">
