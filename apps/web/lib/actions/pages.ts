@@ -21,3 +21,37 @@ export async function updatePageTitle(
 
   revalidatePath(`/${workspaceSlug}`, "layout");
 }
+
+export async function updatePageIcon(
+  pageId: string,
+  icon: string | null,
+  workspaceSlug: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  await db
+    .update(pages)
+    .set({ icon, updatedAt: new Date() })
+    .where(eq(pages.id, pageId));
+
+  revalidatePath(`/${workspaceSlug}`, "layout");
+}
+
+export async function deletePage(pageId: string, workspaceSlug: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  await db.delete(pages).where(eq(pages.id, pageId));
+  revalidatePath(`/${workspaceSlug}`, "layout");
+}
+
+export async function reorderPages(workspaceId: string, orderedIds: string[]) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  await Promise.all(
+    orderedIds.map((id, i) =>
+      db.update(pages).set({ sortOrder: i }).where(eq(pages.id, id))
+    )
+  );
+}

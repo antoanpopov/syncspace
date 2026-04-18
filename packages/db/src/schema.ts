@@ -187,6 +187,7 @@ export const boardCards = pgTable(
     description: text("description"),
     assigneeId: text("assignee_id").references(() => users.id),
     labels: text("labels").array(),
+    dueDate: timestamp("due_date", { withTimezone: true }),
     sortOrder: integer("sort_order").notNull().default(0),
     createdById: text("created_by_id")
       .notNull()

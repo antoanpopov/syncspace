@@ -9,6 +9,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { KanbanCard, type Card } from "./KanbanCard";
+import { updateColumnTitle } from "@/lib/actions/boards";
 
 export type Column = {
   id: string;
@@ -19,11 +20,18 @@ export type Column = {
   cards: Card[];
 };
 
+interface Member {
+  userId: string;
+  name: string;
+  image: string | null;
+}
+
 interface KanbanColumnProps {
   id: string;
   title: string;
   color: string | null;
   cards: Card[];
+  members?: Member[];
   onAddCard: (columnId: string, title: string) => void;
   onCardClick: (card: Card) => void;
   /** True when rendered inside DragOverlay */
@@ -35,12 +43,24 @@ export function KanbanColumn({
   title,
   color,
   cards,
+  members = [],
   onAddCard,
   onCardClick,
   overlay = false,
 }: KanbanColumnProps) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
+  const [displayTitle, setDisplayTitle] = useState(title);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState(title);
+
+  function handleTitleSave() {
+    const trimmed = editTitle.trim() || title;
+    setDisplayTitle(trimmed);
+    setEditTitle(trimmed);
+    setIsEditingTitle(false);
+    if (trimmed !== displayTitle) updateColumnTitle(id, trimmed);
+  }
 
   // Sortable for the column itself (reordering columns)
   const {
@@ -101,7 +121,30 @@ export function KanbanColumn({
           />
         )}
 
-        <h3 className="flex-1 text-sm font-semibold truncate">{title}</h3>
+        {isEditingTitle && !overlay ? (
+          <input
+            autoFocus
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={handleTitleSave}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleTitleSave();
+              if (e.key === "Escape") {
+                setEditTitle(displayTitle);
+                setIsEditingTitle(false);
+              }
+            }}
+            className="flex-1 bg-transparent text-sm font-semibold outline-none border-b border-accent min-w-0"
+          />
+        ) : (
+          <h3
+            className={`flex-1 text-sm font-semibold truncate ${!overlay ? "cursor-text" : ""}`}
+            onClick={() => !overlay && (setEditTitle(displayTitle), setIsEditingTitle(true))}
+            title={overlay ? undefined : "Click to rename"}
+          >
+            {displayTitle}
+          </h3>
+        )}
 
         <span className="text-xs text-text-faint tabular-nums mr-1">
           {cards.length}
@@ -127,9 +170,19 @@ export function KanbanColumn({
           strategy={verticalListSortingStrategy}
         >
           {cards.map((card) => (
-            <KanbanCard key={card.id} card={card} onClick={onCardClick} />
+            <KanbanCard
+              key={card.id}
+              card={card}
+              assignee={members.find((m) => m.userId === card.assigneeId) ?? null}
+              onClick={onCardClick}
+            />
           ))}
         </SortableContext>
+        {cards.length === 0 && !overlay && (
+          <div className="flex items-center justify-center py-5 rounded-md border border-dashed border-border/50">
+            <p className="text-[11px] text-text-faint">Drop cards here</p>
+          </div>
+        )}
       </div>
 
       {/* Add card footer */}

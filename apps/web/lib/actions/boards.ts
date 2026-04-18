@@ -2,9 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { boardCards, boardColumns } from "@syncspace/db/schema";
+import { boardCards, boardColumns, boards } from "@syncspace/db/schema";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
+import { revalidatePath } from "next/cache";
 
 export type CardUpdate = {
   id: string;
@@ -102,6 +103,7 @@ export async function updateCard(
     description?: string | null;
     assigneeId?: string | null;
     labels?: string[] | null;
+    dueDate?: Date | null;
   }
 ) {
   const session = await auth();
@@ -117,4 +119,68 @@ export async function deleteCard(cardId: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   await db.delete(boardCards).where(eq(boardCards.id, cardId));
+}
+
+/** Delete a board and all its columns/cards (cascade). */
+export async function deleteBoard(boardId: string, workspaceSlug: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  await db.delete(boards).where(eq(boards.id, boardId));
+  revalidatePath(`/${workspaceSlug}`, "layout");
+}
+
+/** Rename a column inline. No layout revalidation needed (sidebar doesn't show column titles). */
+export async function updateColumnTitle(columnId: string, title: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  await db
+    .update(boardColumns)
+    .set({ title: title.trim() || "Untitled" })
+    .where(eq(boardColumns.id, columnId));
+}
+
+/** Rename a board. */
+export async function updateBoardTitle(
+  boardId: string,
+  title: string,
+  workspaceSlug: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  await db
+    .update(boards)
+    .set({ title: title.trim() || "Untitled board", updatedAt: new Date() })
+    .where(eq(boards.id, boardId));
+
+  revalidatePath(`/${workspaceSlug}`, "layout");
+}
+
+/** Update a board's emoji icon. */
+export async function updateBoardIcon(
+  boardId: string,
+  icon: string | null,
+  workspaceSlug: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  await db
+    .update(boards)
+    .set({ icon, updatedAt: new Date() })
+    .where(eq(boards.id, boardId));
+
+  revalidatePath(`/${workspaceSlug}`, "layout");
+}
+
+/** Batch-persist new sortOrder for all boards after a sidebar drag reorder. */
+export async function reorderBoards(workspaceId: string, orderedIds: string[]) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  await Promise.all(
+    orderedIds.map((id, i) =>
+      db.update(boards).set({ sortOrder: i }).where(eq(boards.id, id))
+    )
+  );
 }

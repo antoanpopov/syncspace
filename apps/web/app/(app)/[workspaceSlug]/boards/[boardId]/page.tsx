@@ -55,6 +55,8 @@ export default async function BoardPage({
     <KanbanBoard
       boardId={boardId}
       boardTitle={board.title}
+      boardIcon={board.icon}
+      workspaceSlug={workspaceSlug}
       initialColumns={initialColumns}
       members={memberRows}
       currentUserId={userId}

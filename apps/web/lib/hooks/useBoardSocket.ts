@@ -17,6 +17,7 @@ export type CardAddPayload = {
     description: string | null;
     assigneeId: string | null;
     labels: string[] | null;
+    dueDate: Date | null;
     createdAt: Date;
     updatedAt: Date;
   };

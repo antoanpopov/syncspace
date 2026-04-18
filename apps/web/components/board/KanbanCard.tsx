@@ -2,6 +2,8 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { CalendarDays } from "lucide-react";
+import { Avatar } from "@/components/shared/Avatar";
 
 const LABEL_COLORS: Record<string, string> = {
   bug:     "#FF5F5F",
@@ -20,6 +22,7 @@ export type Card = {
   description: string | null;
   assigneeId: string | null;
   labels: string[] | null;
+  dueDate: Date | null;
   sortOrder: number;
   createdById: string;
   createdAt: Date;
@@ -28,12 +31,14 @@ export type Card = {
 
 interface KanbanCardProps {
   card: Card;
+  /** Resolved assignee — pass from parent which has the members list */
+  assignee?: { name: string; image: string | null } | null;
   /** True when rendered inside DragOverlay */
   overlay?: boolean;
   onClick?: (card: Card) => void;
 }
 
-export function KanbanCard({ card, overlay = false, onClick }: KanbanCardProps) {
+export function KanbanCard({ card, assignee, overlay = false, onClick }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -59,6 +64,11 @@ export function KanbanCard({ card, overlay = false, onClick }: KanbanCardProps) 
     );
   }
 
+  const now = new Date();
+  const due = card.dueDate ? new Date(card.dueDate) : null;
+  const isOverdue = due && due < now;
+  const isSoon = due && !isOverdue && (due.getTime() - now.getTime()) < 2 * 24 * 60 * 60 * 1000;
+
   return (
     <div
       ref={setNodeRef}
@@ -81,17 +91,35 @@ export function KanbanCard({ card, overlay = false, onClick }: KanbanCardProps) 
       {card.labels && card.labels.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {card.labels.map((l) => {
-            const opt = LABEL_COLORS[l];
-            return opt ? (
+            const color = LABEL_COLORS[l];
+            return color ? (
               <span
                 key={l}
                 className="rounded-full px-2 py-0.5 text-[10px] font-medium text-bg"
-                style={{ backgroundColor: opt }}
+                style={{ backgroundColor: color }}
               >
                 {l}
               </span>
             ) : null;
           })}
+        </div>
+      )}
+      {/* Due date + assignee row */}
+      {(due || card.assigneeId) && (
+        <div className="mt-2 flex items-center justify-between gap-2">
+          {due && (
+            <span className={`flex items-center gap-1 text-[10px] font-medium ${
+              isOverdue ? "text-[#FF5F5F]" : isSoon ? "text-[#FFB454]" : "text-text-faint"
+            }`}>
+              <CalendarDays className="h-3 w-3" />
+              {due.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </span>
+          )}
+          {assignee && (
+            <span className="ml-auto flex-shrink-0" title={assignee.name}>
+              <Avatar name={assignee.name} image={assignee.image} size={18} />
+            </span>
+          )}
         </div>
       )}
     </div>

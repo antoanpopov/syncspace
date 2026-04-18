@@ -53,6 +53,11 @@ export default async function WorkspaceLayout({
         pages={workspacePages}
         boards={workspaceBoards}
         userRole={membership.role}
+        user={{
+          name: session.user.name ?? "User",
+          email: session.user.email ?? "",
+          image: session.user.image ?? null,
+        }}
       />
       <main className="flex-1 overflow-auto">{children}</main>
     </div>

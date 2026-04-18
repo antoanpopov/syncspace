@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -19,17 +19,22 @@ import {
   sortableKeyboardCoordinates,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { KanbanColumn } from "./KanbanColumn";
 import type { Column } from "./KanbanColumn";
 import { KanbanCard, type Card } from "./KanbanCard";
 import { CardDetail, type Member } from "./CardDetail";
 import { PresenceAvatars } from "@/components/shared/PresenceAvatars";
+import { EmojiPicker } from "@/components/shared/EmojiPicker";
 import { usePresence } from "@/lib/hooks/usePresence";
 import {
   addCard,
   addColumn,
   persistCardMoves,
   persistColumnOrder,
+  updateBoardIcon,
+  updateBoardTitle,
   type CardUpdate,
 } from "@/lib/actions/boards";
 import { useBoardSocket, type CardAddPayload } from "@/lib/hooks/useBoardSocket";
@@ -37,6 +42,8 @@ import { useBoardSocket, type CardAddPayload } from "@/lib/hooks/useBoardSocket"
 interface KanbanBoardProps {
   boardId: string;
   boardTitle: string;
+  boardIcon: string | null;
+  workspaceSlug: string;
   initialColumns: Column[];
   members: Member[];
   currentUserId: string;
@@ -47,18 +54,42 @@ interface KanbanBoardProps {
 export function KanbanBoard({
   boardId,
   boardTitle,
+  boardIcon,
+  workspaceSlug,
   initialColumns,
   members,
   currentUserId,
   currentUserName,
   currentUserColor,
 }: KanbanBoardProps) {
+  const router = useRouter();
   const [columns, setColumns] = useState<Column[]>(initialColumns);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
+  const [icon, setIcon] = useState<string | null>(boardIcon);
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [title, setTitle] = useState(boardTitle);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState(boardTitle);
+
+  function handleTitleSave() {
+    const trimmed = editTitle.trim() || boardTitle;
+    setTitle(trimmed);
+    setEditTitle(trimmed);
+    setIsEditingTitle(false);
+    updateBoardTitle(boardId, trimmed, workspaceSlug).then(() => router.refresh());
+  }
+
+  const handleIconSelect = useCallback(
+    (emoji: string) => {
+      setIcon(emoji);
+      updateBoardIcon(boardId, emoji, workspaceSlug).then(() => router.refresh());
+    },
+    [boardId, workspaceSlug, router]
+  );
 
   // ── Presence ─────────────────────────────────────────────────
   const { others: presentOthers } = usePresence({
@@ -129,20 +160,7 @@ export function KanbanBoard({
       setColumns((prev) =>
         prev.map((col) =>
           col.id === card.columnId
-            ? {
-                ...col,
-                cards: [
-                  ...col.cards,
-                  {
-                    ...card,
-                    description: null,
-                    assigneeId: null,
-                    labels: null,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                  },
-                ],
-              }
+            ? { ...col, cards: [...col.cards, { ...card, createdAt: new Date(card.createdAt), updatedAt: new Date(card.updatedAt) }] }
             : col
         )
       );
@@ -258,6 +276,7 @@ export function KanbanBoard({
       description: null,
       assigneeId: null,
       labels: null,
+      dueDate: null,
       sortOrder: columns.find((c) => c.id === columnId)?.cards.length ?? 0,
       createdById: "",
       createdAt: new Date(),
@@ -293,6 +312,7 @@ export function KanbanBoard({
         description: null,
         assigneeId: null,
         labels: null,
+        dueDate: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -336,13 +356,67 @@ export function KanbanBoard({
   // ── Render ────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-border flex-shrink-0 flex items-center justify-between">
-        <h1 className="text-xl font-bold">{boardTitle}</h1>
-        <PresenceAvatars users={presentOthers} />
+      <div className="px-6 py-3.5 border-b border-border flex-shrink-0 flex items-center justify-between gap-4">
+        {/* Left: icon + title */}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="relative flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowIconPicker((v) => !v)}
+              title="Change icon"
+              className="text-xl leading-none rounded-md p-1 hover:bg-bg-hover transition-colors select-none"
+            >
+              {icon ?? "📋"}
+            </button>
+            {showIconPicker && (
+              <EmojiPicker
+                onSelect={handleIconSelect}
+                onClose={() => setShowIconPicker(false)}
+              />
+            )}
+          </div>
+          {isEditingTitle ? (
+            <input
+              autoFocus
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onBlur={handleTitleSave}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleTitleSave();
+                if (e.key === "Escape") {
+                  setEditTitle(title);
+                  setIsEditingTitle(false);
+                }
+              }}
+              className="text-xl font-bold bg-transparent border-b-2 border-accent outline-none min-w-0 w-48"
+            />
+          ) : (
+            <h1
+              className="text-xl font-bold cursor-text truncate hover:opacity-75 transition-opacity"
+              onClick={() => { setEditTitle(title); setIsEditingTitle(true); }}
+              title="Click to rename"
+            >
+              {title}
+            </h1>
+          )}
+        </div>
+
+        {/* Right: add column + presence */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <button
+            onClick={() => setAddingColumn(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-text-muted hover:text-text hover:border-border-strong transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add column
+          </button>
+          <PresenceAvatars users={presentOthers} />
+        </div>
       </div>
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <DndContext
+          id={`board-${boardId}`}
           sensors={sensors}
           collisionDetection={closestCorners}
           onDragStart={onDragStart}
@@ -350,6 +424,23 @@ export function KanbanBoard({
           onDragEnd={onDragEnd}
         >
           {/* SortableContext for columns (horizontal) */}
+          {columns.length === 0 && !addingColumn && (
+            <div className="flex flex-1 flex-col items-center justify-center text-center px-8 py-20">
+              <div className="text-5xl mb-5">📋</div>
+              <h2 className="text-lg font-semibold mb-2">No columns yet</h2>
+              <p className="text-sm text-text-muted mb-6 max-w-xs">
+                Add columns to organise your work — like "To Do", "In Progress", and "Done".
+              </p>
+              <button
+                onClick={() => setAddingColumn(true)}
+                className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Add first column
+              </button>
+            </div>
+          )}
+
           <SortableContext
             items={columns.map((c) => c.id)}
             strategy={horizontalListSortingStrategy}
@@ -362,14 +453,15 @@ export function KanbanBoard({
                   title={col.title}
                   color={col.color}
                   cards={col.cards}
+                  members={members}
                   onAddCard={handleAddCard}
                   onCardClick={setSelectedCard}
                 />
               ))}
 
-              {/* Add column */}
-              {addingColumn ? (
-                <div className="w-72 flex-shrink-0 rounded-xl border border-border bg-bg-surface p-3 space-y-2">
+              {/* Add column inline form — trigger button is in the header */}
+              {addingColumn && (
+                <div className="w-72 flex-shrink-0 rounded-xl border border-accent/40 bg-bg-surface p-3 space-y-2">
                   <input
                     autoFocus
                     type="text"
@@ -403,20 +495,17 @@ export function KanbanBoard({
                     </button>
                   </div>
                 </div>
-              ) : (
-                <button
-                  onClick={() => setAddingColumn(true)}
-                  className="w-72 flex-shrink-0 rounded-xl border border-dashed border-border hover:border-border-strong text-text-faint hover:text-text-muted text-sm transition-colors px-4 py-3 text-left"
-                >
-                  + Add column
-                </button>
               )}
             </div>
           </SortableContext>
 
           <DragOverlay dropAnimation={{ duration: 150, easing: "ease" }}>
             {activeCard ? (
-              <KanbanCard card={activeCard} overlay />
+              <KanbanCard
+                card={activeCard}
+                overlay
+                assignee={members.find((m) => m.userId === activeCard.assigneeId) ?? null}
+              />
             ) : activeColumn ? (
               <KanbanColumn
                 id={activeColumn.id}
